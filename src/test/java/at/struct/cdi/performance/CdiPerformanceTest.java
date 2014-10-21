@@ -16,17 +16,18 @@
  */
 package at.struct.cdi.performance;
 
-import javax.enterprise.context.RequestScoped;
+import java.util.concurrent.TimeUnit;
+
 import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.BeanManager;
 
-import java.util.concurrent.TimeUnit;
-
-import at.struct.cdi.performance.beans.SimpleBeanWithoutInterceptor;
 import org.apache.deltaspike.cdise.api.CdiContainer;
 import org.apache.deltaspike.cdise.api.CdiContainerLoader;
 import org.apache.deltaspike.cdise.api.ContextControl;
 import org.testng.annotations.Test;
+
+import at.struct.cdi.performance.beans.InjectedBean;
+import at.struct.cdi.performance.beans.SimpleBeanWithoutInterceptor;
 
 /**
  * A few micro benchmarks for various CDI stuff
@@ -38,6 +39,14 @@ public class CdiPerformanceTest
     private static int NUM_ITERATION=100000000;
 
 
+    private void warmUp(BeanManager manager) {
+        System.out.println("Warming up");
+        SimpleBeanWithoutInterceptor underTest = getInstance(manager, SimpleBeanWithoutInterceptor.class);
+        for (int i = 0; i < 10000; i++) {
+            underTest.theMeaningOfLife();
+        }
+        System.out.println("Done");
+    }
 
     @Test
     public void testNormalScopePerformance() throws InterruptedException
@@ -46,14 +55,17 @@ public class CdiPerformanceTest
         cdiContainer.boot();
         final ContextControl contextControl = cdiContainer.getContextControl();
 
-        final SimpleBeanWithoutInterceptor underTest = getInstance(cdiContainer.getBeanManager(), SimpleBeanWithoutInterceptor.class);
+        warmUp(cdiContainer.getBeanManager());
+
+        final SimpleBeanWithoutInterceptor underTest = getInstance(cdiContainer.getBeanManager(), InjectedBean.class).getSimpleBean();
 
         executeInParallel(new Runnable()
         {
             @Override
             public void run()
             {
-                contextControl.startContext(RequestScoped.class);
+                // disable for now as it looks that this does not work properly ATM
+                //contextControl.startContext(RequestScoped.class);
 
                 for (int i = 0; i < NUM_ITERATION; i++)
                 {
@@ -61,7 +73,7 @@ public class CdiPerformanceTest
                     underTest.theMeaningOfLife();
                 }
 
-                contextControl.stopContext(RequestScoped.class);
+                //contextControl.stopContext(RequestScoped.class);
             }
         });
 
